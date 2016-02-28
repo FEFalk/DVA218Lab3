@@ -1,67 +1,83 @@
-/* A simple server in the internet domain using TCP
-   The port number is passed as an argument */
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+#include <string.h>
+#include <unistd.h>
+#include "shared.h"
 
-void error(const char *msg)
+
+int main(void)
 {
-    perror(msg);
-    exit(1);
-}
+    setbuf(stdout, NULL);
+	struct sockaddr_in si_me, si_other;
+	int s, i;
+	socklen_t slen = sizeof si_other;
+	rtp sendPacket;
+	rtp *recvPacket = (rtp *)calloc(sizeof(rtp), 1);
+	recvPacket->data = (char *)calloc(sizeof(char), 256);
+	char errorMessage[512];
+	int uniqueIdentifier=0;
+	int nbytes;
+	printf("hej");
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
+	{
+		strcpy(errorMessage, "Failed to create socket");
+		diep(errorMessage);
+	}
 
-int main(int argc, char *argv[])
-{
-    int sockfd, newsockfd, portno;
-    socklen_t clilen;
-    char buffer[256];
-    struct sockaddr_in serv_addr, cli_addr;
-    int n;
+	memset((char *) &si_me, 0, sizeof(si_me));
 
-    if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
-        exit(1);
-    }
+	si_me.sin_family = AF_INET;
+	si_me.sin_port = htons(PORT);
+	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (bind(s, (struct sockaddr*) &si_me, sizeof(si_me))==-1)
+	{
+		strcpy(errorMessage, "Failed to bind socket");
+		diep(errorMessage);
+	}
 
-    if (sockfd < 0)
-        error("ERROR opening socket");
+	while(1)
+	{
+		for (i=0; i<NPACK; i++) {
+			if ((nbytes = recvfrom(s, recvPacket, 256, 0, (struct sockaddr*) &si_other, &slen))==-1)
+			{
+				strcpy(errorMessage, "Failed to recvfrom");
+				diep(errorMessage);
+			}
+			printf("%d", nbytes);
+			printf("hweghjg");
+			switch(recvPacket->flags)
+			{
+				case DATA:
+				{
+					printf("Received message: %s\n", recvPacket->data);
+					sendPacket.flags=ACK;
+					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
+				}
+					break;
+				case ACK:
+				{
 
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    portno = atoi(argv[1]);
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
+				}
+					break;
+				case SYN:
+				{
+					sendPacket.flags=SYN_ACK;
+					sendPacket.windowsize=16;
+					sendPacket.id=++uniqueIdentifier;
+					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
+				}
+					break;
+				default:
+					break;
+			}
+		}
+	}
 
-    if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-        error("ERROR on binding");
-
-    listen(sockfd,5);
-    clilen = sizeof(cli_addr);
-    newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-
-    if (newsockfd < 0)
-        error("ERROR on accept");
-
-    bzero(buffer,256);
-    n = read(newsockfd,buffer,255);
-
-    if (n < 0)
-        error("ERROR reading from socket");
-
-    printf("Here is the message: %s\n",buffer);
-    n = write(newsockfd,"I got your message",18);
-
-    if (n < 0)
-        error("ERROR writing to socket");
-
-
-    close(newsockfd);
-    close(sockfd);
-    return 0;
+	close(s);
+	return 0;
 }
