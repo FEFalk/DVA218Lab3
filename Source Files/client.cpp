@@ -1,13 +1,7 @@
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include "shared.h"
+#include "wrapper.h"
+
 
 #define SERVER_IP "127.0.0.1"
 
@@ -24,7 +18,6 @@ int main(void)
     rtp recvPacket;
 
 
-    strcpy(sendPacket->data, "Hello 1 :^)");
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
     {
         strcpy(errorMessage, "Failed to create socket");
@@ -49,8 +42,6 @@ int main(void)
     nbytes = sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
     printf("%d\n", nbytes);
-
-    char buffer[256];
 
     recvfrom(s, &recvPacket, 256, 0, (struct sockaddr*) &si_other, &slen);
 
@@ -77,6 +68,52 @@ int main(void)
     strcpy(sendPacket->data, "Hello 1 :^)");
     //Change size to something more logical
     nbytes = sendto(s, (void *)sendPacket, 256, 0, (struct sockaddr*) &si_server, slen);
+
+    string msg;
+    int packetSize=0;
+    cout << "You are now connected to the server! \n"
+                   "Enter a message to send to the server, type END to quit.\n";
+    while(1)
+    {
+        cout << " >";
+        getline(cin, msg);
+        //Some error-handling
+        if(msg.length() > 255)
+            msg[255]=0;
+        else if(msg.length() <= 0)
+        {
+            cout << "Please enter a message to send to the server.\n"
+            continue;
+        }
+        //Some error-handling
+        if(msg.length() > 255)
+            msg[255]=0;
+
+        //If user wants to terminate connection
+        if(msg.compare("END")==0)
+        {
+            //Send FIN-packet to server to close connection
+            break;
+        }
+
+        cout << "Enter how many packets to be sent to the server\n";
+        while(1)
+        {
+            cout << " >";
+            cin >> packetSize;
+            if(packetSize > 0)
+                break;
+            else
+                cout << "Wrong input! Please enter how many packets to be sent to the server\n";
+        }
+
+        cout << "\nStarting transfer of " << packetSize << " packets to server...\n";
+        //Send DATA-packet to server
+        sendData()
+
+    }
+
+
 
     printf("%d\n", nbytes);
     for (i=2; i<NPACK; i++) {

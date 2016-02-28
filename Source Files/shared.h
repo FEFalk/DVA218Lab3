@@ -1,9 +1,17 @@
-//
-// Created by fille on 2016-02-26.
-//
 
 #ifndef TESTPROJECT_SHARED_H
 #define TESTPROJECT_SHARED_H
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <iostream>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+using namespace std;
 
 #define BUFLEN 512
 #define NPACK 10
@@ -23,7 +31,7 @@ typedef struct rtp_struct {
     int windowsize;
     int crc;
     char *data;
-} rtp ;
+} rtp;
 
 
 void diep(char *s);
