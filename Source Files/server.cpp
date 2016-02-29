@@ -23,7 +23,6 @@ int main(void)
 		strcpy(errorMessage, "Failed to create socket");
 		diep(errorMessage);
 	}
-
 	memset((char *) &si_me, 0, sizeof(si_me));
 
 	si_me.sin_family = AF_INET;
@@ -36,46 +35,19 @@ int main(void)
 		diep(errorMessage);
 	}
 
-	while(!isConnected)
+	struct timeval timeout={2, 0};
+
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
+
+	if(!isConnected)
 	{
-		for (i=0; i<NPACK; i++) {
-			if ((nbytes = recvfrom(s, recvPacket, packetSize, 0, (struct sockaddr*) &si_other, &slen))==-1)
-			{
-				strcpy(errorMessage, "Failed to recvfrom");
-				diep(errorMessage);
-			}
-			printf("%d", nbytes);
-			printf("at connection start");
-			switch(recvPacket->flags)
-			{
-				case ACK:
-				{
-					isConnected=true;
-				}
-					break;
-				case SYN:
-				{
-					sendPacket.flags=SYN_ACK;
-					sendPacket.windowsize=16;
-					sendPacket.id=++uniqueIdentifier;
-					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
-				}
-					break;
-				default:
-					break;
-			}
-		}
+		connectTo(s, si_other, &uniqueIdentifier);
+		isConnected=true;
 	}
 	while(isConnected)
 	{
 		for (i=0; i<recvPacket->windowsize; i++) {
-			if ((nbytes = recvfrom(s, recvPacket, packetSize, 0, (struct sockaddr*) &si_other, &slen))==-1)
-			{
-				strcpy(errorMessage, "Failed to recvfrom");
-				diep(errorMessage);
-			}
-			printf("%d", nbytes);
-			printf("at connetion end");
+			recvfrom(s, recvPacket, packetSize, 0, (struct sockaddr*) &si_other, &slen);
 			switch(recvPacket->flags)
 			{
 				case DATA:
