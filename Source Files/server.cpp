@@ -8,7 +8,6 @@ int main(void)
     setbuf(stdout, NULL);
 	struct sockaddr_in si_me, si_other;
 	int s, i;
-	bool isConnected=false;
 	socklen_t slen = sizeof si_other;
 	rtp sendPacket;
 	rtp *recvPacket = (rtp *)calloc(sizeof(rtp), 1);
@@ -17,6 +16,8 @@ int main(void)
 	int uniqueIdentifier=0;
 	int nbytes;
 	int packetSize;
+	struct timeval timeout={2, 0};
+
 	printf("hej");
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 	{
@@ -35,40 +36,37 @@ int main(void)
 		diep(errorMessage);
 	}
 
-	struct timeval timeout={2, 0};
-
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-
-	if(!isConnected)
-	{
-		connectTo(s, si_other, &uniqueIdentifier);
-		isConnected=true;
-	}
+	connectTo(s, si_other, &uniqueIdentifier);
 
 	//Disable timeout to wait for initial DATA/FIN-packets infinitely
 	timeout={0, 0};
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-	recvfrom(s, recvPacket, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
 
-	//Enable timeout
-	timeout={2, 0};
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-	while(isConnected)
+
+	while(1)
 	{
+		recvfrom(s, recvPacket, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
 		switch(recvPacket->flags)
 		{
 			case DATA:
 			{
-				if(recvDataFrom(s, (struct rtp *)recvPacket, si_other)==-1)
+				timeout={0, 0};
+				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
+
+				if(recvDataFrom(s, (struct rtp_struct *)recvPacket, si_other)==-1)
 				{
 					terminateProgram(s);
 					return -1;
 				}
-
 			}
 				break;
 			case FIN:
 			{
+				//Enable timeout
+				timeout={2, 0};
+				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
+
+
 				sendPacket.flags=FIN_ACK;
 				sendPacket.windowsize=16;
 				sendPacket.id=++uniqueIdentifier;
