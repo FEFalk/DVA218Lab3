@@ -42,7 +42,7 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
     if(recvPacket->seq!=0)
         return -1;
 
-    cout << "Client is sending DATA-packets, Initializing transmission...\n";
+    cout << "Client is sending DATA-packets, Initializing transmission...\  n";
     sendPacket->seq=currentSequenceNum++;
     sendPacket->flags=ACK;
     sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
@@ -94,9 +94,9 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
     }
 }
 
-void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier)
+sockaddr_in connectTo(int s, int *uniqueIdentifier)
 {
-    struct sockaddr_in si_other;
+    struct sockaddr_in si_client;
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
     rtp recvPacket;
     socklen_t slen=sizeof si_client;
@@ -104,7 +104,7 @@ void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier)
     bool connected=false;
     while(!connected)
     {
-        recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen);
+        recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_client, &slen);
         if(recvPacket.flags==SYN)
         {
             sendPacket->flags=SYN_ACK;
@@ -114,7 +114,7 @@ void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier)
             {
                 sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
                 cout << "Waiting to connect...\n";
-                if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
+                if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_client, &slen) < 0)
                 {
                     cout << "Timeout reached. Resending (SYN+ACK)." << ".\n";
                     continue;
@@ -125,12 +125,14 @@ void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier)
                 }
                 else if(recvPacket.flags == ACK)
                 {
+                    cout << "Received ACK from client. The client is now connected!\n";
                     connected=true;
                     break;
                 }
             }
         }
     }
+    return si_client;
 }
 
 bool closeConnectionFrom(int s, int uniqueIdentifier, struct sockaddr_in si_server)

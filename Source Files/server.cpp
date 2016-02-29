@@ -16,7 +16,7 @@ int main(void)
 	int uniqueIdentifier=0;
 	int nbytes;
 	int packetSize;
-	struct timeval timeout={2, 0};
+	struct timeval timeout={5, 0};
 
 	printf("hej");
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
@@ -36,12 +36,11 @@ int main(void)
 		diep(errorMessage);
 	}
 
-	connectTo(s, si_other, &uniqueIdentifier);
+	si_other = connectTo(s, &uniqueIdentifier);
 
 	//Disable timeout to wait for initial DATA/FIN-packets infinitely
-	timeout={0, 0};
+	timeout={2, 0};
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-
 
 	while(1)
 	{

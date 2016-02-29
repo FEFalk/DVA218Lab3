@@ -21,13 +21,13 @@ using namespace std;
 #define PORT 9932
 #define WINDOWSIZE 5
 
-#define DATA 0
-#define LAST_DATA 1
-#define ACK 2
-#define SYN 3
-#define SYN_ACK 4
-#define FIN 5
-#define FIN_ACK 6
+#define DATA 1
+#define LAST_DATA 2
+#define ACK 3
+#define SYN 4
+#define SYN_ACK 5
+#define FIN 6
+#define FIN_ACK 7
 
 
 typedef struct rtp_struct {

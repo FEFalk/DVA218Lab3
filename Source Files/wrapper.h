@@ -8,7 +8,7 @@
 
 unsigned short crc16(const unsigned char* data_p, unsigned char length);
 int recvDataFrom(int s, struct rtp_struct *recvPacket, struct sockaddr_in si_client);
-void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier);
+sockaddr_in connectTo(int s, int *uniqueIdentifier);
 void terminateProgram(int s);
 
 #endif //SERVER_WRAPPER_H
