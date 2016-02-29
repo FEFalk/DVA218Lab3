@@ -1,8 +1,24 @@
 
 #include "shared.h"
 
-//TIMEOUT INITIALIZED
-struct timeval timeout={2, 0};
+
+
+/*
+    Generic checksum calculation function
+*/
+unsigned short crc16(const unsigned char* data_p, unsigned char length)
+{
+    unsigned char x;
+    unsigned short crc = 0xFFFF;
+
+    while (length--){
+        x = crc >> 8 ^ *data_p++;
+        x ^= x>>4;
+        crc = (crc << 8) ^ ((unsigned short)(x << 12)) ^ ((unsigned short)(x <<5)) ^ ((unsigned short)x);
+    }
+    return crc;
+}
+
 
 void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int packetSize, struct sockaddr_in si_server)
 {
@@ -15,6 +31,9 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
     sendPacket->data = (char *)calloc(sizeof(char), 256);
     strcpy(sendPacket->data, msg);
+    sendPacket->crc=0;
+    sendPacket->crc = crc16((unsigned char *)msg, (unsigned char)strlen(msg));
+
     sendPacket->flags=DATA;
     sendPacket->id=uniqueIdentifier;
     sendPacket->seq=0;
