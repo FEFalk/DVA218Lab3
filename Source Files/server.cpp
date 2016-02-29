@@ -44,34 +44,39 @@ int main(void)
 		connectTo(s, si_other, &uniqueIdentifier);
 		isConnected=true;
 	}
+
+	//Disable timeout to wait for initial DATA/FIN-packets infinitely
+	timeout={0, 0};
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
+	recvfrom(s, recvPacket, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
+
+	//Enable timeout
+	timeout={2, 0};
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
 	while(isConnected)
 	{
-		for (i=0; i<recvPacket->windowsize; i++) {
-			recvfrom(s, recvPacket, packetSize, 0, (struct sockaddr*) &si_other, &slen);
-			switch(recvPacket->flags)
+		switch(recvPacket->flags)
+		{
+			case DATA:
 			{
-				case DATA:
+				if(recvDataFrom(s, (struct rtp *)recvPacket, si_other)==-1)
 				{
-					recvDataFrom(s, recvPacket->data, recvPacket->windowsize, packetSize, si_other);
-				}
-					break;
-				case ACK:
-				{
-					isConnected = false;
 					terminateProgram(s);
+					return -1;
 				}
-					break;
-				case FIN:
-				{
-					sendPacket.flags=FIN_ACK;
-					sendPacket.windowsize=16;
-					sendPacket.id=++uniqueIdentifier;
-					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
-				}
-					break;
-				default:
-					break;
+
 			}
+				break;
+			case FIN:
+			{
+				sendPacket.flags=FIN_ACK;
+				sendPacket.windowsize=16;
+				sendPacket.id=++uniqueIdentifier;
+				sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
+			}
+				break;
+			default:
+				break;
 		}
 	}
 

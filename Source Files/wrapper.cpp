@@ -29,53 +29,69 @@ void terminateProgram(int s)
     return;
 }
 
-void recvDataFrom(int s, char *msg, int windowsize, int packetSize, struct sockaddr_in si_client)
+int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
 {
     struct sockaddr_in si_other;
     socklen_t slen = sizeof si_client;
-    int totalActivePackets=0;
-    int currentSequenceNum=0;
-    int buff[256];
-    //Initialize packet to send
-    rtp *recvPacket = (rtp *)calloc(sizeof(rtp), 1);
-    recvPacket->data = (char *)calloc(sizeof(char), 256);
-    strcpy(recvPacket->data, msg);
-
+    char *acceptedPackets[BUFLEN];
+    int totalActivePackets=0, currentSequenceNum=0;
 
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
 
-    //CHECK SEQUENCE NUMBER STORE IN BUFF SEND ACK
+    //If the first received packet is out of sync -> exit.
+    if(recvPacket->seq!=0)
+        return -1;
 
+
+    cout << "Client is sending DATA-packets, Initializing transmission...\n";
+    sendPacket->seq=currentSequenceNum++;
+    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+    sendPacket->flags=ACK;
+
+    //CHECK SEQUENCE NUMBER STORE IN BUFF SEND ACK
     while(1)
     {
-        for(int i=0;totalActivePackets<windowsize; i++)
+        recvfrom(s, recvPacket, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
+        sendPacket->seq=currentSequenceNum;
+
+        //If received CORRECT frame
+        if(recvPacket->seq == currentSequenceNum)
         {
-            if(recvPacket->seq == currentSequenceNum){
-                printf("%s", recvPacket->data);
-                sendPacket->flags=ACK;
-                sendPacket->seq=buff[currentSequenceNum];
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
-                currentSequenceNum++;
-            }
-            else if(recvPacket->seq > currentSequenceNum)
-            {
-                buff[currentSequenceNum] = recvPacket->seq;
-                sendPacket->flags=ACK;
-                sendPacket->seq=currentSequenceNum;
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
-            }
+            cout << "Received correct frame (" << recvPacket->seq << ").\n";
+            if(acceptedPackets[currentSequenceNum]==0)
+                strcpy(acceptedPackets[currentSequenceNum], recvPacket->data);
             else
+                cout << "Packet " << recvPacket->seq << " already received. Rejecting it and moving on...\n";
+
+            if(recvPacket->flags==LAST_DATA)
             {
-                sendPacket->flags=ACK;
-                sendPacket->seq=currentSequenceNum;
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+                cout << "Last packet received! " << recvPacket->seq << " Closing transmission...\n";
+                break;
             }
-
-            totalActivePackets++;
+            //cout << "Packet data: " << recvPacket->data;
+            sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+            currentSequenceNum++;
         }
-        break;
-    }
 
+            //If received frame larger than expected
+        else if(recvPacket->seq > currentSequenceNum)
+        {
+            strcpy(acceptedPackets[recvPacket->seq], recvPacket->data);
+            sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+        }
+
+            //If frame is corrupted
+        else if(crc16((unsigned char *)recvPacket->data, (unsigned char)strlen(recvPacket->data)) != recvPacket->crc)
+        {
+            cout << "Packet data from frame " << recvPacket->seq << " is corrupted! Ignoring it...";
+        }
+
+            //If frame is smaller than expected
+        else
+        {
+            sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+        }
+    }
 }
 
 void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier)
@@ -100,11 +116,8 @@ void connectTo(int s, struct sockaddr_in si_client, int *uniqueIdentifier)
                 cout << "Waiting to connect...\n";
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
                 {
-                    if(sendPacket->flags==SYN_ACK)
-                    {
-                        cout << "Timeout reached. Resending connection request (SYN)." << ".\n";
-                        continue;
-                    }
+                    cout << "Timeout reached. Resending connection request (SYN)." << ".\n";
+                    continue;
                 }
                 else if(recvPacket->flags==SYN) {
                     cout << "Connection was interrupted by SYN+ACK packet from server. Resending ACK...\n";
