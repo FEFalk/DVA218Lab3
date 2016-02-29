@@ -35,7 +35,7 @@ int main(void)
     //TIMEOUT INITIALIZED
     struct timeval timeout={2, 0};
     //TIMEOUT INITIALIZED
-    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
 
     if((uniqueIdentifier = connectTo(s, &windowSize, si_server)) == -1)
         return 0;

@@ -43,6 +43,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     {
         for(int i=0;totalActivePackets<windowSize; i++)
         {
+            sleep(100000);
             sendPacket->seq=currentSequenceNum+i;
             sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
             totalActivePackets++;
@@ -55,27 +56,29 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             cout << "Timeout reached. Resending from sequence number " << currentSequenceNum << ".\n";
             continue;
         }
-
-        cout << "Received ACK " << recvPacket.seq << ".\n";
-
-        //Check sequence number etc.
-        if(recvPacket.seq>=currentSequenceNum)
+        if(recvPacket.flags==ACK)
         {
-            totalActivePackets-=(recvPacket.seq+1)-currentSequenceNum;
-            currentSequenceNum=recvPacket.seq+1;
-            cout << "Moving sequence number to " << currentSequenceNum << ".\n";
+            cout << "Received ACK " << recvPacket.seq << ".\n";
 
-            if(currentSequenceNum>=packetSize)
+            //Check sequence number etc.
+            if(recvPacket.seq>=currentSequenceNum)
             {
-                cout << "Transfer is complete! \n";
-                break;
+                totalActivePackets-=(recvPacket.seq+1)-currentSequenceNum;
+                currentSequenceNum=recvPacket.seq+1;
+                cout << "Moving sequence number to " << currentSequenceNum << ".\n";
+
+                if(currentSequenceNum>=packetSize)
+                {
+                    cout << "Transfer is complete! \n";
+                    break;
+                }
             }
-        }
-        else
-        {
-            totalActivePackets=0;
-            currentSequenceNum=recvPacket.seq+1;
-            cout << "Resending from package " << currentSequenceNum << "...\n";
+            else
+            {
+                totalActivePackets=0;
+                currentSequenceNum=recvPacket.seq+1;
+                cout << "Resending from package " << currentSequenceNum << "...\n";
+            }
         }
     }
 }
