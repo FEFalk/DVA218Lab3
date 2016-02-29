@@ -14,7 +14,6 @@
 using namespace std;
 
 #define BUFLEN 512
-#define NPACK 10
 #define PORT 9932
 
 #define DATA 0
@@ -33,8 +32,6 @@ typedef struct rtp_struct {
     char *data;
 } rtp;
 
-
 void diep(char *s);
-
 
 #endif //TESTPROJECT_SHARED_H

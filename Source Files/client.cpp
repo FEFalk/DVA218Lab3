@@ -7,15 +7,12 @@
 
 int main(void)
 {
-    struct sockaddr_in si_server, si_other;
-    int s, i;
-    socklen_t slen=sizeof si_server;
+    struct sockaddr_in si_server;
+    int s;
     int uniqueIdentifier, windowSize;
     char *errorMessage;
-    int nbytes;
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
     sendPacket->data = (char *)calloc(sizeof(char), 256);
-    rtp recvPacket;
 
 
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
@@ -37,42 +34,16 @@ int main(void)
     }
 
 
-    sendPacket->flags=SYN;
-    sendPacket->id=0;
-    nbytes = sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+    if((uniqueIdentifier = connectTo(s, &windowSize, si_server)) == -1)
+        return 0;
 
-    printf("%d\n", nbytes);
 
-    recvfrom(s, &recvPacket, 256, 0, (struct sockaddr*) &si_other, &slen);
-
-    if(recvPacket.flags==SYN_ACK)
-    {
-        uniqueIdentifier=recvPacket.id;
-        windowSize=recvPacket.windowsize;
-
-        sendPacket->flags=ACK;
-        nbytes = sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
-    }
-
-    printf("%d\n", nbytes);
-    //TODO
-    /*If timed out, proceed*/
-    //recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, (socklen_t *)&slen);
-    //if(recvPacket.flags==ACK)
-    //{
-    //    printf("Connected to the server!");
-    //}
-
-    sendPacket->flags=DATA;
-    printf("Sending packet 1\n");
-    strcpy(sendPacket->data, "Hello 1 :^)");
-    //Change size to something more logical
-    nbytes = sendto(s, (void *)sendPacket, 256, 0, (struct sockaddr*) &si_server, slen);
+    cout << "You are now connected to the server! \n"
+            "Enter a message to send to the server, type END to quit.\n";
 
     string msg;
     int packetSize=0;
-    cout << "You are now connected to the server! \n"
-                   "Enter a message to send to the server, type END to quit.\n";
+
     while(1)
     {
         cout << " >";
@@ -82,7 +53,7 @@ int main(void)
             msg[255]=0;
         else if(msg.length() <= 0)
         {
-            cout << "Please enter a message to send to the server.\n"
+            cout << "Please enter a message to send to the server.\n";
             continue;
         }
         //Some error-handling
@@ -92,46 +63,34 @@ int main(void)
         //If user wants to terminate connection
         if(msg.compare("END")==0)
         {
-            //Send FIN-packet to server to close connection
-            break;
+            terminateProgram(s);
+            return 0;
         }
+        //Copy the string to a char* - datatype
+        char *cstr = new char[msg.length() + 1];
+        strcpy(cstr, msg.c_str());
 
-        cout << "Enter how many packets to be sent to the server\n";
+        cout << "Enter how many packets to be sent to the server. Enter 0 to exit.\n";
         while(1)
         {
             cout << " >";
             cin >> packetSize;
             if(packetSize > 0)
                 break;
+            else if(packetSize == 0)
+            {
+                //Send FIN-packet to server to close connection
+                terminateProgram(s);
+                return 0;
+            }
             else
                 cout << "Wrong input! Please enter how many packets to be sent to the server\n";
         }
 
         cout << "\nStarting transfer of " << packetSize << " packets to server...\n";
+
         //Send DATA-packet to server
-        sendData()
-
+        sendDataTo(s, cstr, windowSize, packetSize, si_server);
     }
 
-
-
-    printf("%d\n", nbytes);
-    for (i=2; i<NPACK; i++) {
-        recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, (socklen_t *)&slen);
-        if(recvPacket.flags==ACK)
-        {
-            printf("Sending packet %d\n", i);
-            fflush(stdout);
-            sprintf(sendPacket->data, "Hello %d :^)", i);
-            if((sendto(s, (void*) sendPacket, 256, 0, (struct sockaddr*) &si_server, slen)) == -1)
-            {
-                strcpy(errorMessage, "Failed the 'sendto()'");
-                diep(errorMessage);
-            }
-            printf("%s", errorMessage);
-        }
-    }
-
-    close(s);
-    return 0;
 }
