@@ -1,19 +1,14 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <string.h>
-#include <unistd.h>
-#include "shared.h"
 
+#include "wrapper.h"
+#include "shared.h"
+using namespace std;
 
 int main(void)
 {
     setbuf(stdout, NULL);
 	struct sockaddr_in si_me, si_other;
 	int s, i;
+	bool isConnected=false;
 	socklen_t slen = sizeof si_other;
 	rtp sendPacket;
 	rtp *recvPacket = (rtp *)calloc(sizeof(rtp), 1);
@@ -21,6 +16,7 @@ int main(void)
 	char errorMessage[512];
 	int uniqueIdentifier=0;
 	int nbytes;
+	int packetSize;
 	printf("hej");
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 	{
@@ -40,33 +36,62 @@ int main(void)
 		diep(errorMessage);
 	}
 
-	while(1)
+	while(!isConnected)
 	{
 		for (i=0; i<NPACK; i++) {
-			if ((nbytes = recvfrom(s, recvPacket, 256, 0, (struct sockaddr*) &si_other, &slen))==-1)
+			if ((nbytes = recvfrom(s, recvPacket, packetSize, 0, (struct sockaddr*) &si_other, &slen))==-1)
 			{
 				strcpy(errorMessage, "Failed to recvfrom");
 				diep(errorMessage);
 			}
 			printf("%d", nbytes);
-			printf("hweghjg");
+			printf("at connection start");
 			switch(recvPacket->flags)
 			{
-				case DATA:
-				{
-					printf("Received message: %s\n", recvPacket->data);
-					sendPacket.flags=ACK;
-					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
-				}
-					break;
 				case ACK:
 				{
-
+					isConnected=true;
 				}
 					break;
 				case SYN:
 				{
 					sendPacket.flags=SYN_ACK;
+					sendPacket.windowsize=16;
+					sendPacket.id=++uniqueIdentifier;
+					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
+				}
+					break;
+				default:
+					break;
+			}
+		}
+	}
+	while(isConnected)
+	{
+		for (i=0; i<recvPacket->windowsize; i++) {
+			if ((nbytes = recvfrom(s, recvPacket, packetSize, 0, (struct sockaddr*) &si_other, &slen))==-1)
+			{
+				strcpy(errorMessage, "Failed to recvfrom");
+				diep(errorMessage);
+			}
+			printf("%d", nbytes);
+			printf("at connetion end");
+			switch(recvPacket->flags)
+			{
+				case DATA:
+				{
+					recvDataFrom(s, recvPacket->data, recvPacket->windowsize, packetSize, si_other);
+				}
+					break;
+				case ACK:
+				{
+					isConnected = false;
+					terminateProgram(s);
+				}
+					break;
+				case FIN:
+				{
+					sendPacket.flags=FIN_ACK;
 					sendPacket.windowsize=16;
 					sendPacket.id=++uniqueIdentifier;
 					sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
