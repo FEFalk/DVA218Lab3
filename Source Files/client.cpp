@@ -14,7 +14,6 @@ int main(void)
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
     sendPacket->data = (char *)calloc(sizeof(char), 256);
 
-
     if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
     {
         strcpy(errorMessage, "Failed to create socket");
@@ -33,6 +32,10 @@ int main(void)
         exit(1);
     }
 
+    //TIMEOUT INITIALIZED
+    struct timeval timeout={2, 0};
+    //TIMEOUT INITIALIZED
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
 
     if((uniqueIdentifier = connectTo(s, &windowSize, si_server)) == -1)
         return 0;
@@ -42,7 +45,7 @@ int main(void)
             "Enter a message to send to the server, type END to quit.\n";
 
     string msg;
-    int packetSize=0;
+    int packetSize=-1;
 
     while(1)
     {
@@ -63,7 +66,7 @@ int main(void)
         //If user wants to terminate connection
         if(msg.compare("END")==0)
         {
-            terminateProgram(s);
+            terminateProgram(s, uniqueIdentifier, si_server);
             return 0;
         }
         //Copy the string to a char* - datatype
@@ -79,8 +82,7 @@ int main(void)
                 break;
             else if(packetSize == 0)
             {
-                //Send FIN-packet to server to close connection
-                terminateProgram(s);
+                terminateProgram(s, uniqueIdentifier, si_server);
                 return 0;
             }
             else
@@ -90,7 +92,7 @@ int main(void)
         cout << "\nStarting transfer of " << packetSize << " packets to server...\n";
 
         //Send DATA-packet to server
-        sendDataTo(s, cstr, windowSize, packetSize, si_server);
+        sendDataTo(s, uniqueIdentifier, cstr, windowSize, packetSize, si_server);
     }
 
 }
