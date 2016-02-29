@@ -5,6 +5,7 @@
 #ifndef SERVER_WRAPPER_H
 #define SERVER_WRAPPER_H
 
+unsigned short crc16(const unsigned char* data_p, unsigned char length);
 void recvDataFrom(int s, char *msg, int windowsize, int packetSize, struct sockaddr_in si_client);
 void terminateProgram(int s);
 
