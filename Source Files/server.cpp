@@ -39,24 +39,28 @@ int main(void)
 	si_other = connectTo(s, &uniqueIdentifier);
 
 	//Disable timeout to wait for initial DATA/FIN-packets infinitely
-	timeout={2, 0};
+	timeout={0, 0};
 	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
+	char* deSerializedData = (char *)malloc(BUFLEN);
 
 	while(1)
 	{
-		recvfrom(s, recvPacket, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
+		recvfrom(s, deSerializedData, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
+		deserialize(deSerializedData, (struct rtp_struct*)recvPacket);
+		//memcpy(recvPacket, deSerializedData, BUFLEN);
 		switch(recvPacket->flags)
 		{
 			case DATA:
 			{
-				timeout={0, 0};
-				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-
-				if(recvDataFrom(s, (struct rtp_struct *)recvPacket, si_other)==-1)
+				if(recvDataFrom(s, recvPacket, si_other)==-1)
 				{
 					terminateProgram(s);
 					return -1;
 				}
+				//Reset timeout-value
+				timeout={0, 0};
+				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
+				cout << "Transmission closed. Waiting for new client requests...\n";
 			}
 				break;
 			case FIN:
