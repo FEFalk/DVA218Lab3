@@ -45,7 +45,6 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     int totalActivePackets=0;
     int currentSequenceNum=0;
 
-
     //Initialize packet to send
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
     sendPacket->data = (char *)calloc(sizeof(char), 256);
@@ -59,9 +58,8 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     rtp recvPacket;
 
     int nbytes;
-    char *serializedData;
+    char *serializedData = (char *)malloc((sizeof(rtp)+strlen(sendPacket->data)+1));
     int LAR;
-    serializedData = (char *)malloc(sizeof(sizeof(rtp)+strlen(sendPacket->data)+1));
     while(1)
     {
         for(int i=0;totalActivePackets<windowSize && (currentSequenceNum+i) < packetSize; i++)
@@ -81,7 +79,6 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
         }
 
         //If timed out
-
         if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
         {
             totalActivePackets=0;
@@ -105,7 +102,6 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
                     if(recvPacket.seq > LAR)
                         LAR=recvPacket.seq;
                 }
-
             }
             timeout={2, 0};
             setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
@@ -137,7 +133,6 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     }
 
     free(serializedData);
-    free(sendPacket->data);
     free(sendPacket);
 }
 
@@ -266,7 +261,7 @@ int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
             }
         }
     }
-    free(sendPacket);
     free(sendPacket->data);
+    free(sendPacket);
     return recvPacket.id;
 }

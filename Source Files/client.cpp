@@ -70,7 +70,7 @@ int main(void)
             return 0;
         }
         //Copy the string to a char* - datatype
-        char *cstr = new char[msg.length() + 1];
+        char *cstr = (char *)calloc(sizeof(char), msg.length()+1);
         strcpy(cstr, msg.c_str());
 
         cout << "Enter how many packets to be sent to the server. Enter 0 to exit.\n";
@@ -93,6 +93,7 @@ int main(void)
 
         //Send DATA-packet to server
         sendDataTo(s, uniqueIdentifier, cstr, windowSize, packetSize, si_server);
+        free(cstr);
     }
 
 }
