@@ -70,7 +70,7 @@ int main(void)
             return 0;
         }
         //Copy the string to a char* - datatype
-        char *cstr = (char *)calloc(sizeof(char), msg.length()+1);
+        char *cstr = (char *)calloc(sizeof(char), (msg.length()+1));
         strcpy(cstr, msg.c_str());
 
         cout << "Enter how many packets to be sent to the server. Enter 0 to exit.\n";

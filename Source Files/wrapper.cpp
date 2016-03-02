@@ -30,12 +30,14 @@ void serialize(rtp* msgPacket, char *data)
 
     char *p = (char*)q;
     int i = 0;
-    while (i < 256)
+    while (i < strlen(msgPacket->data)+1)
     {
         *p = msgPacket->data[i];
         p++;
         i++;
     }
+    q=NULL;
+    p=NULL;
 }
 
 void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int packetSize, struct sockaddr_in si_server)
@@ -62,7 +64,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     int LAR;
     while(1)
     {
-        for(int i=0;totalActivePackets<windowSize && (currentSequenceNum+i) < packetSize; i++)
+        for(int i=0;totalActivePackets<windowSize && (currentSequenceNum+i) <= packetSize-1; i++)
         {
             sendPacket->seq=currentSequenceNum+i;
             if(currentSequenceNum+i==(packetSize-1))
@@ -73,7 +75,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             //Serializing data
             serialize(sendPacket, serializedData);
 
-            cout << "Sending DATA-package " << sendPacket->seq << ".";
+            cout << "Sending DATA-package " << sendPacket->seq << ".\n";
             nbytes = sendto(s, serializedData, sizeof(rtp)+strlen(sendPacket->data)+1, 0, (struct sockaddr*) &si_server, slen);
             totalActivePackets++;
         }
