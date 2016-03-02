@@ -62,11 +62,10 @@ void closeTransmission(char **acceptedPackets, rtp *sendPacket, char *serialized
 
 int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
 {
-
-
     //If the first received packet is out of sync -> exit.
     if(recvPacket->seq!=0)
         return -1;
+
 
     struct sockaddr_in si_other;
     socklen_t slen = sizeof si_client;
@@ -84,16 +83,23 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
     sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
 
 
+
     char* serializedData = (char *)malloc(BUFLEN);
 
     //CHECK SEQUENCE NUMBER STORE IN BUFF SEND ACK
     while(1)
     {
-        cout << "Waiting for packets...\n";
-        recvfrom(s, serializedData, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
-        sendPacket->seq=currentSequenceNum;
-
+        if(recvPacket->seq==0 && recvPacket->flags==LAST_DATA)
+        {
+            currentSequenceNum=0;
+        }
+        else{
+            cout << "Waiting for packets...\n";
+            recvfrom(s, serializedData, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
+            sendPacket->seq=currentSequenceNum;
+        }
         deserialize(serializedData, (struct rtp_struct*)recvPacket);
+
         if(recvPacket->flags==DATA || recvPacket->flags==LAST_DATA)
         {
             //If received CORRECT frame

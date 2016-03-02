@@ -51,6 +51,7 @@ int main(void)
 		switch(recvPacket->flags)
 		{
 			case DATA:
+			case LAST_DATA:
 			{
 				if(recvDataFrom(s, recvPacket, si_other)==-1)
 				{
@@ -63,6 +64,7 @@ int main(void)
 				cout << "Transmission closed. Waiting for new client requests...\n";
 			}
 				break;
+
 			case FIN:
 			{
 				//Enable timeout
