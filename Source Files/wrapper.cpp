@@ -19,6 +19,24 @@ unsigned short crc16(const unsigned char* data_p, unsigned char length)
     return crc;
 }
 
+void serialize(rtp* msgPacket, char *data)
+{
+    int *q = (int*)data;
+    *q = msgPacket->flags;       q++;
+    *q = msgPacket->id;   q++;
+    *q = msgPacket->seq;     q++;
+    *q = msgPacket->windowsize;     q++;
+    *q = msgPacket->crc;     q++;
+
+    char *p = (char*)q;
+    int i = 0;
+    while (i < 256)
+    {
+        *p = msgPacket->data[i];
+        p++;
+        i++;
+    }
+}
 
 void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int packetSize, struct sockaddr_in si_server)
 {
@@ -26,6 +44,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     socklen_t slen = sizeof si_server;
     int totalActivePackets=0;
     int currentSequenceNum=0;
+
 
     //Initialize packet to send
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
@@ -39,48 +58,87 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     sendPacket->seq=0;
     rtp recvPacket;
 
+    int nbytes;
+    char *serializedData;
+    int LAR;
+    serializedData = (char *)malloc(sizeof(sizeof(rtp)+strlen(sendPacket->data)+1));
     while(1)
     {
-        for(int i=0;totalActivePackets<windowSize; i++)
+        for(int i=0;totalActivePackets<windowSize && (currentSequenceNum+i) < packetSize; i++)
         {
-            sleep(100000);
             sendPacket->seq=currentSequenceNum+i;
-            sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+            if(currentSequenceNum+i==(packetSize-1))
+                sendPacket->flags=LAST_DATA;
+            else
+                sendPacket->flags=DATA;
+
+            //Serializing data
+            serialize(sendPacket, serializedData);
+
+            cout << "Sending DATA-package " << sendPacket->seq << ".";
+            nbytes = sendto(s, serializedData, sizeof(rtp)+strlen(sendPacket->data)+1, 0, (struct sockaddr*) &si_server, slen);
             totalActivePackets++;
         }
 
         //If timed out
+
         if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
         {
             totalActivePackets=0;
             cout << "Timeout reached. Resending from sequence number " << currentSequenceNum << ".\n";
             continue;
         }
+
         if(recvPacket.flags==ACK)
         {
             cout << "Received ACK " << recvPacket.seq << ".\n";
+            LAR=recvPacket.seq;
+
+            //Setting short timeout and reading through queue for largest ACK received from server
+            struct timeval timeout={0, 1000};
+            setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
+            while(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) >= 0)
+            {
+                if(recvPacket.flags==ACK )
+                {
+                    cout << "Received ACK " << recvPacket.seq << ".\n";
+                    if(recvPacket.seq > LAR)
+                        LAR=recvPacket.seq;
+                }
+
+            }
+            timeout={2, 0};
+            setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
+
+            cout << "Largest ACK received is " << LAR << ".\n";
 
             //Check sequence number etc.
-            if(recvPacket.seq>=currentSequenceNum)
+            if(LAR>=currentSequenceNum)
             {
-                totalActivePackets-=(recvPacket.seq+1)-currentSequenceNum;
-                currentSequenceNum=recvPacket.seq+1;
-                cout << "Moving sequence number to " << currentSequenceNum << ".\n";
-
-                if(currentSequenceNum>=packetSize)
+                if(LAR>=packetSize-1)
                 {
                     cout << "Transfer is complete! \n";
                     break;
                 }
+
+                totalActivePackets-=((LAR+1)-currentSequenceNum);
+                currentSequenceNum=LAR+1;
+                cout << "Moving sequence number to " << currentSequenceNum << ".\n";
+
+
             }
             else
             {
                 totalActivePackets=0;
-                currentSequenceNum=recvPacket.seq+1;
-                cout << "Resending from package " << currentSequenceNum << "...\n";
+                currentSequenceNum=LAR+1;
+                cout << "ACK " << LAR << " Has a lower sequence number than expected. Packet(s) lost.\n Resending from package " << currentSequenceNum << "...\n";
             }
         }
     }
+
+    free(serializedData);
+    free(sendPacket->data);
+    free(sendPacket);
 }
 
 
@@ -128,10 +186,16 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
                 else if(recvPacket.flags==FIN_ACK)
                     cout << "Closing of connection was interrupted by FIN+ACK packet from server. Resending ACK...\n";
                 else
+                {
+                    free(sendPacket);
+                    free(sendPacket->data);
                     return false;
+                }
+
             }
         }
     }
+    free(sendPacket);
     return true;
 }
 
@@ -193,9 +257,16 @@ int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
                 else if(recvPacket.flags==SYN_ACK)
                     cout << "Connection was interrupted by SYN+ACK packet from server. Resending ACK...\n";
                 else
+                {
+                    free(sendPacket);
+                    free(sendPacket->data);
                     return -1;
+                }
+
             }
         }
     }
+    free(sendPacket);
+    free(sendPacket->data);
     return recvPacket.id;
 }

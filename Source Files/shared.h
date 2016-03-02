@@ -15,6 +15,7 @@ using namespace std;
 
 #define BUFLEN 512
 #define PORT 9932
+#define WINDOWSIZE 5
 
 #define DATA 1
 #define LAST_DATA 2
