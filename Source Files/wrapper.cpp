@@ -285,7 +285,43 @@ sockaddr_in connectTo(int s, int *uniqueIdentifier)
     return si_client;
 }
 
-bool closeConnectionFrom(int s, int uniqueIdentifier, struct sockaddr_in si_server)
+bool closeConnectionFrom(int s, int *uniqueIdentifier, struct sockaddr_in si_client)
 {
+    rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
+    rtp recvPacket;
+    socklen_t slen=sizeof si_client;
 
+    bool connected=false;
+    while(!connected)
+    {
+        recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_client, &slen);
+        if(recvPacket.flags==FIN)
+        {
+            sendPacket->flags=FIN_ACK;
+            sendPacket->id=++(*uniqueIdentifier);
+            cout << "Received FIN from client.\n";
+            while(1)
+            {
+                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+                cout << "Waiting to close...\n";
+                if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_client, &slen) < 0)
+                {
+                    cout << "Timeout reached. Resending (SYN+ACK)." << ".\n";
+                    continue;
+                }
+                else if(recvPacket.flags==FIN) {
+                    cout << "Connection was interrupted by FIN packet from client. Resending FIN+ACK...\n";
+                    continue;
+                }
+                else if(recvPacket.flags == ACK)
+                {
+                    cout << "Received ACK from client. Closing connection!\n";
+                    connected=true;
+                    break;
+                }
+            }
+        }
+    }
+    free(sendPacket);
+    return true;
 }

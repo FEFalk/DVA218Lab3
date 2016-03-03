@@ -13,5 +13,6 @@ int recvDataFrom(int s, struct rtp_struct *recvPacket, struct sockaddr_in si_cli
 sockaddr_in connectTo(int s, int *uniqueIdentifier);
 void terminateProgram(int s);
 void closeTransmission(char **acceptedPackets, struct rtp_struct *sendPacket, char *serializedData);
+bool closeConnectionFrom(int s, int *uniqueIdentifier, struct sockaddr_in si_server);
 
 #endif //SERVER_WRAPPER_H

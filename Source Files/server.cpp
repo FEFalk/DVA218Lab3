@@ -71,8 +71,14 @@ int main(void)
 				//Enable timeout
 				timeout={2, 0};
 				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-				sendPacket.flags=FIN_ACK;
-				sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
+				if(closeConnectionFrom(s, &uniqueIdentifier, si_other)){
+					close(s);
+					cout << "Connection closed. \n";
+					return 0;
+				}
+				else
+					break;
+
 			}
 				break;
 			default:
@@ -80,6 +86,4 @@ int main(void)
 		}
 	}
 
-	close(s);
-	return 0;
 }
