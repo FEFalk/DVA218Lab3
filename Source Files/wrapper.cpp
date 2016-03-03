@@ -20,6 +20,27 @@ unsigned short crc16(const unsigned char* data_p, unsigned char length)
     return crc;
 }
 
+void serialize(rtp* msgPacket, char *data)
+{
+    int *q = (int*)data;
+    *q = msgPacket->flags;       q++;
+    *q = msgPacket->id;   q++;
+    *q = msgPacket->seq;     q++;
+    *q = msgPacket->windowsize;     q++;
+    *q = msgPacket->crc;     q++;
+
+    char *p = (char*)q;
+    int i = 0;
+    while (i < strlen(msgPacket->data)+1)
+    {
+        *p = msgPacket->data[i];
+        p++;
+        i++;
+    }
+    q=NULL;
+    p=NULL;
+}
+
 void deserialize(char *data, rtp* msgPacket)
 {
     int *q = (int*)data;
@@ -48,6 +69,28 @@ void terminateProgram(int s)
     return;
 }
 
+bool randomizePacket(struct rtp_struct *sendPacket) {
+    int r = rand() % 10;
+
+    switch (r)
+    {
+        //Corrupted packet
+        case 0:
+            sendPacket->crc=155;
+            break;
+            //Packet out of order
+        case 1:
+            sendPacket->seq-=1;
+            break;
+            //Packet lost
+        case 2:
+            return false;
+        default:
+            break;
+    }
+    return true;
+}
+
 void closeTransmission(char **acceptedPackets, rtp *sendPacket, char *serializedData)
 {
     for(int i=0;i<BUFLEN;i++)
@@ -66,46 +109,50 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
     if(recvPacket->seq!=0)
         return -1;
 
-
+    bool isFirstPacket=true;
     struct sockaddr_in si_other;
     socklen_t slen = sizeof si_client;
     char **acceptedPackets;
     acceptedPackets = (char **)calloc(sizeof(char *), BUFLEN);
     int currentSequenceNum=0;
-
+    int tempCRC;
     struct timeval timeout={0, 0};
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
 
+
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);
     cout << "Client is sending DATA-packets, Initializing transmission...\n";
-    sendPacket->seq=currentSequenceNum++;
+    sendPacket->seq=currentSequenceNum;
     sendPacket->flags=ACK;
-    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
-
-
 
     char* serializedData = (char *)malloc(BUFLEN);
+    serialize(recvPacket, serializedData);
 
     //CHECK SEQUENCE NUMBER STORE IN BUFF SEND ACK
     while(1)
     {
-        if(recvPacket->seq==0 && recvPacket->flags==LAST_DATA)
-        {
-            currentSequenceNum=0;
-        }
+        if(isFirstPacket)
+            isFirstPacket=false;
         else{
             cout << "Waiting for packets...\n";
             recvfrom(s, serializedData, BUFLEN, 0, (struct sockaddr*) &si_other, &slen);
             sendPacket->seq=currentSequenceNum;
+            deserialize(serializedData, (struct rtp_struct*)recvPacket);
         }
-        deserialize(serializedData, (struct rtp_struct*)recvPacket);
 
         if(recvPacket->flags==DATA || recvPacket->flags==LAST_DATA)
         {
+            tempCRC=recvPacket->crc;
+            recvPacket->crc=0;
+            //If frame is corrupted
+            if ((crc16((unsigned char *) serializedData, (strlen(serializedData)+1))) != tempCRC) {
+                cout << "Packet data from frame " << recvPacket->seq << " is corrupted! Ignoring it...\n";
+            }
             //If received CORRECT frame
-            if (recvPacket->seq == currentSequenceNum) {
-                cout << "Received correct frame (" << recvPacket->seq << ") Sending ACK...\n";
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
+            else if (recvPacket->seq == currentSequenceNum) {
+                cout << "Received correct frame (" << recvPacket->seq << ") Sending ACK " << currentSequenceNum << "...\n";
+                if(randomizePacket(sendPacket))
+                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
                 if (acceptedPackets[currentSequenceNum] == NULL) {
                     acceptedPackets[currentSequenceNum] = (char *) calloc(sizeof(char), strlen(recvPacket->data) + 1);
                     strcpy(acceptedPackets[currentSequenceNum], recvPacket->data);
@@ -150,7 +197,8 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
                             // If bad packet-flag/sequence number was received we discard it and close the transmission.
                             if (receivedData && recvPacket->seq > (currentSequenceNum-WINDOWSIZE)) {
                                 cout << "Received additional DATA-packet(s). Sending last ACK again...";
-                                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
+                                if(randomizePacket(sendPacket))
+                                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
                             }
                             else
                             {
@@ -168,25 +216,26 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
 
                 //If received frame larger than expected
             else if (recvPacket->seq > currentSequenceNum) {
+                cout << "Packet " << recvPacket->seq << " is larger than expected. (Expected " << currentSequenceNum << ")\n";
+                sendPacket->seq=currentSequenceNum-1;
+                cout << "Sending ACK " << sendPacket->seq << "...\n";
                 if (acceptedPackets[recvPacket->seq] == NULL) {
                     acceptedPackets[recvPacket->seq] = (char *) calloc(sizeof(char), strlen(recvPacket->data) + 1);
                     strcpy(acceptedPackets[recvPacket->seq], recvPacket->data);
                 }
                 else
                     cout << "Packet " << recvPacket->seq << " already received. Rejecting it and moving on...\n";
-
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
-            }
-
-                //If frame is corrupted
-            else if ((crc16((unsigned char *) recvPacket->data, (unsigned char) strlen(recvPacket->data))) !=
-                     recvPacket->crc) {
-                cout << "Packet data from frame " << recvPacket->seq << " is corrupted! Ignoring it...";
+                if(randomizePacket(sendPacket))
+                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
             }
 
                 //If frame is smaller than expected
             else {
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
+                sendPacket->seq=currentSequenceNum-1;
+                cout << "Packet " << recvPacket->seq << " received is smaller than expected (" << currentSequenceNum <<
+                        ").\nSending ACK " << sendPacket->seq << " again...\n";
+                if(randomizePacket(sendPacket))
+                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr *) &si_client, slen);
             }
         }
     }
@@ -211,7 +260,8 @@ sockaddr_in connectTo(int s, int *uniqueIdentifier)
             cout << "Received SYN from client.\n";
             while(1)
             {
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
+                if(randomizePacket(sendPacket))
+                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
                 cout << "Waiting to connect...\n";
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_client, &slen) < 0)
                 {

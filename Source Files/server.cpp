@@ -5,6 +5,7 @@ using namespace std;
 
 int main(void)
 {
+	srand(time(NULL));
     setbuf(stdout, NULL);
 	struct sockaddr_in si_me, si_other;
 	int s, i;
@@ -70,11 +71,7 @@ int main(void)
 				//Enable timeout
 				timeout={2, 0};
 				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-
-
 				sendPacket.flags=FIN_ACK;
-				sendPacket.windowsize=16;
-				sendPacket.id=++uniqueIdentifier;
 				sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
 			}
 				break;
