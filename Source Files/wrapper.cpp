@@ -6,7 +6,7 @@
 /*
     Generic checksum calculation function
 */
-unsigned short crc16(const unsigned char* data_p, unsigned char length)
+unsigned short crc16(const unsigned char* data_p, int length)
 {
     unsigned char x;
     unsigned short crc = 0xFFFF;
@@ -39,6 +39,29 @@ void serialize(rtp* msgPacket, char *data)
     q=NULL;
     p=NULL;
 }
+bool randomizePacket(rtp *sendPacket) {
+    int r = rand() % 10;
+
+    switch (r)
+    {
+        //Corrupted packet
+        case 0:
+        {
+            sendPacket->crc=1;
+        }
+            break;
+            //Packet out of order
+        case 1:
+            sendPacket->seq-=1;
+            break;
+            //Packet lost
+        case 2:
+            return false;
+        default:
+            break;
+    }
+    return true;
+}
 
 void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int packetSize, struct sockaddr_in si_server)
 {
@@ -52,18 +75,16 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
     sendPacket->data = (char *)calloc(sizeof(char), 256);
     strcpy(sendPacket->data, msg);
     sendPacket->crc=0;
-    sendPacket->crc = crc16((unsigned char *)msg, (unsigned char)strlen(msg));
-
-    sendPacket->flags=DATA;
     sendPacket->id=uniqueIdentifier;
-    sendPacket->seq=0;
-    rtp recvPacket;
-
-    int nbytes;
     char *serializedData = (char *)malloc((sizeof(rtp)+strlen(sendPacket->data)+1));
+
+    rtp recvPacket;
+    int nbytes;
+
     int LAR;
     while(1)
     {
+
         for(int i=0;totalActivePackets<windowSize && (currentSequenceNum+i) <= packetSize-1; i++)
         {
             sendPacket->seq=currentSequenceNum+i;
@@ -72,11 +93,20 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             else
                 sendPacket->flags=DATA;
 
-            //Serializing data
+            sendPacket->crc=0;
             serialize(sendPacket, serializedData);
+            sendPacket->crc = crc16((unsigned char *)serializedData, (strlen(serializedData)+1));
 
-            cout << "Sending DATA-package " << sendPacket->seq << ".\n";
-            nbytes = sendto(s, serializedData, sizeof(rtp)+strlen(sendPacket->data)+1, 0, (struct sockaddr*) &si_server, slen);
+
+            usleep(1000*500);
+            //cout << "Sending DATA-package " << sendPacket->seq << ".\n";
+            if(randomizePacket(sendPacket))
+            {
+                //Serializing data
+                serialize(sendPacket, serializedData);
+                nbytes = sendto(s, serializedData, sizeof(rtp)+strlen(sendPacket->data)+1, 0, (struct sockaddr*) &si_server, slen);
+            }
+
             totalActivePackets++;
         }
 
@@ -100,7 +130,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             {
                 if(recvPacket.flags==ACK )
                 {
-                    cout << "Received ACK " << recvPacket.seq << ".\n";
+                    //cout << "Received ACK " << recvPacket.seq << ".\n";
                     if(recvPacket.seq > LAR)
                         LAR=recvPacket.seq;
                 }
@@ -153,7 +183,9 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
     bool connected=true;
     while(connected)
     {
-        sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+        if(randomizePacket(sendPacket))
+            sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+
 
         //If timed out
         if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
@@ -172,7 +204,8 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
             cout << "Received FIN+ACK from server.\n";
             while(1)
             {
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+                if(randomizePacket(sendPacket))
+                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
                 cout << "Waiting to close connection...\n";
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
@@ -210,6 +243,8 @@ void terminateProgram(int s, int uniqueIdentifier, struct sockaddr_in si_server)
     return;
 }
 
+
+
 int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
 {
     struct sockaddr_in si_other;
@@ -223,7 +258,8 @@ int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
     bool connected=false;
     while(!connected)
     {
-        sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+        if(randomizePacket(sendPacket))
+            sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
         //If timed out
         if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
@@ -243,7 +279,8 @@ int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
             cout << "Received SYN+ACK from server.\n";
             while(1)
             {
-                sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
+                if(randomizePacket(sendPacket))
+                    sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
                 cout << "Waiting to connect...\n";
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)

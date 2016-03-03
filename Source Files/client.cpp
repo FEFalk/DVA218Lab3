@@ -7,6 +7,7 @@
 
 int main(void)
 {
+    srand(time(NULL));
     struct sockaddr_in si_server;
     int s;
     int uniqueIdentifier, windowSize;

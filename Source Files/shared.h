@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <time.h>
 using namespace std;
 
 #define BUFLEN 512
