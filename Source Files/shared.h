@@ -1,4 +1,15 @@
 
+/**
+    Datacommunication, DVA218 - Lab 3
+    shared.h
+    Purpose: Contains defines for the different flags used in packets.
+    Includes the packet-struct skeleton.
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
+
+
 #ifndef TESTPROJECT_SHARED_H
 #define TESTPROJECT_SHARED_H
 
@@ -14,9 +25,7 @@
 #include <time.h>
 using namespace std;
 
-#define BUFLEN 512
 #define PORT 9932
-#define WINDOWSIZE 5
 
 #define DATA 1
 #define LAST_DATA 2

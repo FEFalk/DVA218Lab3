@@ -1,10 +1,22 @@
 
-#include "shared.h"
-
-
 
 /*
-    Generic checksum calculation function
+    Datacommunication, DVA218 - Lab 3
+    wrapper.cpp
+    Purpose: Contains functions for client.cpp
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
+
+#include "shared.h"
+
+/*
+    crc16 - Generic checksum calculation function
+
+    @param data_p - The string to be used for calculating the checksum
+    @param length - The length of the string data_p
+    @return - The calculated checksum value
 */
 unsigned short crc16(const unsigned char* data_p, int length)
 {
@@ -19,6 +31,12 @@ unsigned short crc16(const unsigned char* data_p, int length)
     return crc;
 }
 
+/*
+    serialize - Function for serializing a rtp struct
+
+    @param msgPacket - The struct to be used for serializing.
+    @param data - The included message(string) of the packet.
+*/
 void serialize(rtp* msgPacket, char *data)
 {
     int *q = (int*)data;
@@ -39,6 +57,15 @@ void serialize(rtp* msgPacket, char *data)
     q=NULL;
     p=NULL;
 }
+
+/*
+    randomizePacket - Randomizes an error for a packet.
+    Choosing between Corrupted packet, Packet out of order and Lost packet.
+
+    @param sendPacket - The packet to receive a random error.
+
+    @return - true or false depending on if the packet should be lost or not.
+*/
 bool randomizePacket(rtp *sendPacket) {
     int r = rand() % 10;
 
@@ -63,6 +90,17 @@ bool randomizePacket(rtp *sendPacket) {
     return true;
 }
 
+/*
+    recvDataFrom - Sliding Window protocol.
+
+    @param s - The client's socket.
+    @param uniqueIdentifier - The unique identifier of the socket's connection to the server.
+    @param msg - The message/data to be sent in the packets.
+    @param windowSize - The window size to be used. (Assigned by the server)
+    @param packetSize - Total amount of packets to be sent.
+    @param si_server - The server's information such as IP-address and such.
+
+*/
 void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int packetSize, struct sockaddr_in si_server)
 {
     struct sockaddr_in si_other;
@@ -120,7 +158,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
 
         if(recvPacket.flags==ACK)
         {
-            cout << "Received ACK " << recvPacket.seq << "." << endl;
+            //cout << "Received ACK " << recvPacket.seq << "." << endl;
             LAR=recvPacket.seq;
 
             //Setting short timeout and reading through queue for largest ACK received from server
@@ -170,7 +208,15 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
 
 
 
+/*
+    connectTo - Connection Teardown
 
+    @param s - The client's socket.
+    @param uniqueIdentifier - The unique identifier of the socket's connection to the server.
+    @param si_server - The server's information such as IP-address and such.
+
+    @return - true of false depending on if the connection got closed correctly.
+*/
 bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server)
 {
     struct sockaddr_in si_other;
@@ -227,6 +273,13 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
     return true;
 }
 
+/*
+    terminateProgram - Function to run the connection teardown and to close the client-socket.
+
+    @param s - The client's socket-id.
+    @param uniqueIdentifier - The unique identifier of the socket's connection to the server.
+    @param si_server - The server's information such as IP-address and such.
+*/
 void terminateProgram(int s, int uniqueIdentifier, struct sockaddr_in si_server)
 {
     if(!closeConnectionTo(s, uniqueIdentifier, si_server))
@@ -242,7 +295,15 @@ void terminateProgram(int s, int uniqueIdentifier, struct sockaddr_in si_server)
 }
 
 
+/*
+    connectTo - Connection Setup
 
+    @param s - The client's socket.
+    @param windowSize - Pointer to the window size variable in the main function.
+    @param si_server - The server's information such as IP-address and such.
+
+    @return - The assigned unique identifier received from the server.
+*/
 int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
 {
     struct sockaddr_in si_other;

@@ -1,20 +1,21 @@
 
+
+/*
+    Datacommunication, DVA218 - Lab 3
+    client.cpp
+    Purpose: Creates a client UDP-socket to connect to a server with the defined ip-address stored in "SERVER_IP".
+    Uses the rtp struct to send and receive different packets.
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
+
 #include "shared.h"
 #include "wrapper.h"
 
 
 #define SERVER_IP "127.0.0.1"
 
-
-
-/****************************************************************
- *                                                              *
- *                                                              *
- *                                                              *
- *                                                              *
- *                                                              *
- *                                                              *
- *                                                              */
 int main(void)
 {
     srand(time(NULL));

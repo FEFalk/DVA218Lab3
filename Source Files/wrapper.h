@@ -1,4 +1,13 @@
 
+/*
+    Datacommunication, DVA218 - Lab 3
+    wrapper.h
+    Purpose: Declarations for functions in wrapper.cpp
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
+
 #ifndef CLIENT_WRAPPER_H
 #define CLIENT_WRAPPER_H
 
