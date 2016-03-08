@@ -99,7 +99,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
 
 
             usleep(1000*500);
-            //cout << "Sending DATA-package " << sendPacket->seq << ".\n";
+            //cout << "Sending DATA-package " << sendPacket->seq << "." << endl;
             if(randomizePacket(sendPacket))
             {
                 //Serializing data
@@ -114,13 +114,13 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
         if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
         {
             totalActivePackets=0;
-            cout << "Timeout reached. Resending from sequence number " << currentSequenceNum << ".\n";
+            cout << "Timeout reached. Resending from sequence number " << currentSequenceNum << "." << endl;
             continue;
         }
 
         if(recvPacket.flags==ACK)
         {
-            cout << "Received ACK " << recvPacket.seq << ".\n";
+            cout << "Received ACK " << recvPacket.seq << "." << endl;
             LAR=recvPacket.seq;
 
             //Setting short timeout and reading through queue for largest ACK received from server
@@ -130,7 +130,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             {
                 if(recvPacket.flags==ACK )
                 {
-                    //cout << "Received ACK " << recvPacket.seq << ".\n";
+                    //cout << "Received ACK " << recvPacket.seq << "." << endl;
                     if(recvPacket.seq > LAR)
                         LAR=recvPacket.seq;
                 }
@@ -138,20 +138,20 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             timeout={2, 0};
             setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
 
-            cout << "Largest ACK received is " << LAR << ".\n";
+            cout << "Largest ACK received is " << LAR << "." << endl;
 
             //Check sequence number etc.
             if(LAR>=currentSequenceNum)
             {
                 if(LAR>=packetSize-1)
                 {
-                    cout << "Transfer is complete! \n";
+                    cout << "Transfer is complete! " << endl;
                     break;
                 }
 
                 totalActivePackets-=((LAR+1)-currentSequenceNum);
                 currentSequenceNum=LAR+1;
-                cout << "Moving sequence number to " << currentSequenceNum << ".\n";
+                cout << "Moving sequence number to " << currentSequenceNum << "." << endl;
 
 
             }
@@ -159,7 +159,7 @@ void sendDataTo(int s, int uniqueIdentifier, char *msg, int windowSize, int pack
             {
                 totalActivePackets=0;
                 currentSequenceNum=LAR+1;
-                cout << "ACK " << LAR << " Has a lower sequence number than expected. Packet(s) lost.\n Resending from package " << currentSequenceNum << "...\n";
+                cout << "ACK " << LAR << " Has a lower sequence number than expected. Packet(s) lost.\n Resending from package " << currentSequenceNum << "..." << endl;
             }
         }
     }
@@ -186,13 +186,12 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
         if(randomizePacket(sendPacket))
             sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
-
         //If timed out
         if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
         {
             if(sendPacket->flags==FIN)
             {
-                cout << "Timeout reached. Resending connection request (FIN)." << ".\n";
+                cout << "Timeout reached. Resending connection-teardown request (FIN)." << endl;
                 continue;
             }
         }
@@ -201,24 +200,23 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
         {
             sendPacket->flags=ACK;
 
-            cout << "Received FIN+ACK from server.\n";
+            cout << "Received FIN+ACK from server." << endl;
             while(1)
             {
                 if(randomizePacket(sendPacket))
                     sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
-                cout << "Waiting to close connection...\n";
+                cout << "Waiting to close connection..." << endl;
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
                 {
                     connected=false;
                     break;
                 }
                 else if(recvPacket.flags==FIN_ACK)
-                    cout << "Closing of connection was interrupted by FIN+ACK packet from server. Resending ACK...\n";
+                    cout << "Closing of connection was interrupted by FIN+ACK packet from server. Resending ACK..." << endl;
                 else
                 {
                     free(sendPacket);
-                    free(sendPacket->data);
                     return false;
                 }
 
@@ -232,14 +230,14 @@ bool closeConnectionTo(int s, int uniqueIdentifier, struct sockaddr_in si_server
 void terminateProgram(int s, int uniqueIdentifier, struct sockaddr_in si_server)
 {
     if(!closeConnectionTo(s, uniqueIdentifier, si_server))
-        cout << "Received bad package.\n";
+        cout << "Received bad package." << endl;
     else
-        cout << "Connection shut down properly.\n";
+        cout << "Connection shut down properly." << endl;
 
-    cout << "Closing socket...\n";
+    cout << "Closing socket..." << endl;
     close(s);
 
-    cout << "Terminating application...\n";
+    cout << "Terminating application..." << endl;
     return;
 }
 
@@ -266,7 +264,7 @@ int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
         {
             if(sendPacket->flags==SYN)
             {
-                cout << "Timeout reached. Resending connection request (SYN)." << ".\n";
+                cout << "Timeout reached. Resending connection request (SYN)." << "." << endl;
                 continue;
             }
         }
@@ -276,20 +274,20 @@ int connectTo(int s, int *windowSize, struct sockaddr_in si_server)
             *windowSize=recvPacket.windowsize;
             sendPacket->flags=ACK;
 
-            cout << "Received SYN+ACK from server.\n";
+            cout << "Received SYN+ACK from server." << endl;
             while(1)
             {
                 if(randomizePacket(sendPacket))
                     sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_server, slen);
 
-                cout << "Waiting to connect...\n";
+                cout << "Waiting to connect..." << endl;
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, &slen) < 0)
                 {
                     connected=true;
                     break;
                 }
                 else if(recvPacket.flags==SYN_ACK)
-                    cout << "Connection was interrupted by SYN+ACK packet from server. Resending ACK...\n";
+                    cout << "Connection was interrupted by SYN+ACK packet from server. Resending ACK..." << endl;
                 else
                 {
                     free(sendPacket);

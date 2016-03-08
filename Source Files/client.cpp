@@ -5,6 +5,16 @@
 
 #define SERVER_IP "127.0.0.1"
 
+
+
+/****************************************************************
+ *                                                              *
+ *                                                              *
+ *                                                              *
+ *                                                              *
+ *                                                              *
+ *                                                              *
+ *                                                              */
 int main(void)
 {
     srand(time(NULL));
@@ -42,8 +52,8 @@ int main(void)
         return 0;
 
 
-    cout << "You are now connected to the server! \n"
-            "Enter a message to send to the server, type END to quit.\n";
+    cout << "You are now connected to the server! " << endl <<
+            "Enter a message to send to the server, type END to quit." << endl;
 
     string msg;
     int packetSize=-1;
@@ -57,7 +67,7 @@ int main(void)
             msg[255]=0;
         else if(msg.length() <= 0)
         {
-            cout << "Please enter a message to send to the server.\n";
+            cout << "Please enter a message to send to the server." << endl;
             continue;
         }
         //Some error-handling
@@ -74,7 +84,7 @@ int main(void)
         char *cstr = (char *)calloc(sizeof(char), (msg.length()+1));
         strcpy(cstr, msg.c_str());
 
-        cout << "Enter how many packets to be sent to the server. Enter 0 to exit.\n";
+        cout << "Enter how many packets to be sent to the server. Enter 0 to exit." << endl;
         while(1)
         {
             cout << " >";
@@ -87,10 +97,10 @@ int main(void)
                 return 0;
             }
             else
-                cout << "Wrong input! Please enter how many packets to be sent to the server\n";
+                cout << "Wrong input! Please enter how many packets to be sent to the server" << endl;
         }
 
-        cout << "\nStarting transfer of " << packetSize << " packets to server...\n";
+        cout << "\nStarting transfer of " << packetSize << " packets to server..." << endl;
 
         //Send DATA-packet to server
         sendDataTo(s, uniqueIdentifier, cstr, windowSize, packetSize, si_server);
