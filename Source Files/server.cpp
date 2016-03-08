@@ -5,8 +5,8 @@ using namespace std;
 
 int main(void)
 {
+	setvbuf(stdout, NULL, _IONBF, 0);
 	srand(time(NULL));
-    setbuf(stdout, NULL);
 	struct sockaddr_in si_me, si_other;
 	int s, i;
 	socklen_t slen = sizeof si_other;
@@ -62,24 +62,28 @@ int main(void)
 				//Reset timeout-value
 				timeout={0, 0};
 				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout, sizeof(timeout));
-				cout << "Transmission closed. Waiting for new client requests...\n";
+				cout << "Transmission closed. Waiting for new client requests..." << endl;
 			}
 				break;
 
 			case FIN:
 			{
 				//Enable timeout
-				timeout={2, 0};
-				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
-				sendPacket.flags=FIN_ACK;
-				sendto(s, (void *) &sendPacket, sizeof(rtp), 0, (struct sockaddr*) &si_other, slen);
+				timeout = {2, 0};
+				setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout, sizeof(timeout));
+				if (closeConnectionFrom(s, recvPacket, si_other)) {
+					close(s);
+					cout << "Connection closed." << endl;
+					close(s);
+					return 0;
+				}
+				else
+					break;
 			}
-				break;
 			default:
 				break;
 		}
 	}
 
-	close(s);
 	return 0;
 }
