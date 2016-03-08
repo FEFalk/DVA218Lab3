@@ -1,11 +1,23 @@
-//
-// Created by frenning on 2016-02-29.
-//
-
 
 #include "shared.h"
+
+/**
+    Datacommunication, DVA218 - Lab 3
+    wrapper.cpp
+    Purpose: Contains functions for server.cpp
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
+
+
+
 /*
-    Generic checksum calculation function
+    crc16 - Generic checksum calculation function
+
+    @param data_p - The string to be used for calculating the checksum
+    @param length - The length of the string data_p
+    @return - The calculated checksum value
 */
 unsigned short crc16(const unsigned char* data_p, unsigned char length)
 {
@@ -20,6 +32,12 @@ unsigned short crc16(const unsigned char* data_p, unsigned char length)
     return crc;
 }
 
+/*
+    serialize - Function for serializing a rtp struct
+
+    @param msgPacket - The struct to be used for serializing.
+    @param data - The included message(string) of the packet.
+*/
 void serialize(rtp* msgPacket, char *data)
 {
     int *q = (int*)data;
@@ -41,6 +59,12 @@ void serialize(rtp* msgPacket, char *data)
     p=NULL;
 }
 
+/*
+    deserialize - Function to deserialize a rtp struct that has been serialized
+
+    @param data - The serialized struct.
+    @param msgPacket - Pointer to the rtp which is going to be receiving the deserialized packet.
+*/
 void deserialize(char *data, rtp* msgPacket)
 {
     int *q = (int*)data;
@@ -60,6 +84,11 @@ void deserialize(char *data, rtp* msgPacket)
     }
 }
 
+/*
+    terminateProgram - Function to close the server's socket.
+
+    @param s - The server's socket-id.
+*/
 void terminateProgram(int s)
 {
     cout << "Terminating connection..." << endl;
@@ -69,6 +98,14 @@ void terminateProgram(int s)
     return;
 }
 
+/*
+    randomizePacket - Randomizes an error for a packet.
+    Choosing between Corrupted packet, Packet out of order and Lost packet.
+
+    @param sendPacket - The packet to receive a random error.
+
+    @return - true or false depending on if the packet should be lost or not.
+*/
 bool randomizePacket(struct rtp_struct *sendPacket) {
     int r = rand() % 10;
 
@@ -91,6 +128,13 @@ bool randomizePacket(struct rtp_struct *sendPacket) {
     return true;
 }
 
+/*
+    closeTransmission - Frees allocated memory from the "recvDataFrom" function
+
+    @param acceptedPackets - Array of strings that have been given allocated memory.
+    @param sendPacket - Packet-struct to send to the server.
+    @param serializedData - Pointer to serialized rtp-struct.
+*/
 void closeTransmission(char **acceptedPackets, rtp *sendPacket, char *serializedData)
 {
     for(int i=0;i<BUFLEN;i++)
@@ -103,6 +147,15 @@ void closeTransmission(char **acceptedPackets, rtp *sendPacket, char *serialized
     free(serializedData);
 }
 
+/*
+    recvDataFrom - Sliding Window protocol.
+
+    @param s - The server's socket.
+    @param recvPacket - The initial packet received from the client.
+    @param si_client - The client's information such as IP-address and such.
+
+    @return - Error values.
+*/
 int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
 {
     //If the first received packet is out of sync -> exit.
@@ -241,6 +294,14 @@ int recvDataFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
     }
 }
 
+/*
+    connectTo - Connection Setup
+
+    @param s - The server's socket.
+    @param uniqueIdentifier - Pointer to the unique identifier of the client's socket.
+
+    @return - The connected client's socket information.
+*/
 sockaddr_in connectTo(int s, int *uniqueIdentifier)
 {
     struct sockaddr_in si_client;
@@ -260,9 +321,10 @@ sockaddr_in connectTo(int s, int *uniqueIdentifier)
             cout << "Received SYN from client." << endl;
             while(1)
             {
+                cout << "Sending SYN+ACK-packet to client..." << endl;
                 if(randomizePacket(sendPacket))
                     sendto(s, (void *) sendPacket, sizeof(*sendPacket), 0, (struct sockaddr*) &si_client, slen);
-                cout << "Waiting to connect..." << endl;
+                cout << "Waiting for ACK-packet from client..." << endl;
                 if(recvfrom(s, &recvPacket, sizeof(rtp), 0, (struct sockaddr*) &si_client, &slen) < 0)
                 {
                     cout << "Timeout reached. Resending (SYN+ACK)." << endl;
@@ -285,6 +347,15 @@ sockaddr_in connectTo(int s, int *uniqueIdentifier)
     return si_client;
 }
 
+/*
+    connectTo - Connection Teardown
+
+    @param s - The server's socket.
+    @param recvPacket - Pointer to the initial packet received from the client.
+    @param si_client - The client's information such as IP-address and such.
+
+    @return - true of false depending on if the connection got closed correctly.
+*/
 bool closeConnectionFrom(int s, rtp *recvPacket, struct sockaddr_in si_client)
 {
     rtp *sendPacket = (rtp *)calloc(sizeof(rtp), 1);

@@ -1,7 +1,13 @@
-//
-// Created by fille on 2016-02-26.
-//
+/**
+    Datacommunication, DVA218 - Lab 3
+    shared.h
+    Purpose: Contains defines for the different flags used in packets.
+    Also defines the used Window-size to use within the server.
+    Includes the packet-struct skeleton.
 
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
 #ifndef TESTPROJECT_SHARED_H
 #define TESTPROJECT_SHARED_H
 

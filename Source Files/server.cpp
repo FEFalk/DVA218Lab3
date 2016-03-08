@@ -1,4 +1,15 @@
 
+
+/*
+    Datacommunication, DVA218 - Lab 3
+    server.cpp
+    Purpose: Creates a server UDP-socket to wait for incoming connections.
+    Uses the rtp struct to send and receive different packets.
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
+
 #include "wrapper.h"
 #include "shared.h"
 using namespace std;
@@ -19,7 +30,6 @@ int main(void)
 	int packetSize;
 	struct timeval timeout={5, 0};
 
-	printf("hej");
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP))==-1)
 	{
 		strcpy(errorMessage, "Failed to create socket");
@@ -56,6 +66,7 @@ int main(void)
 			{
 				if(recvDataFrom(s, recvPacket, si_other)==-1)
 				{
+					cout << "First DATA-packet received wasn't the correct sequence number." << endl;
 					terminateProgram(s);
 					return -1;
 				}

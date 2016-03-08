@@ -1,6 +1,11 @@
-//
-// Created by frenning on 2016-02-29.
-//
+/*
+    Datacommunication, DVA218 - Lab 3
+    wrapper.h
+    Purpose: Declarations for functions in wrapper.cpp
+
+    @author Filiph Eriksson-Falk - ffk13001, Fredrik Frenning - ffg12002
+    @date 08/03/2016
+*/
 
 #ifndef SERVER_WRAPPER_H
 #define SERVER_WRAPPER_H
